@@ -1,3 +1,24 @@
+// fbinfogrid project main src
+
+// Copyright ©2020 Steve Merrony
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 // Must do  this first: sudo fbset -fb /dev/fb0 -depth 16
 // unless 16-bit framebuffer depth is set in config.txt
 
@@ -5,6 +26,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"image"
 	"image/draw"
@@ -12,7 +34,6 @@ import (
 	_ "image/png"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"sync"
@@ -24,19 +45,7 @@ import (
 	"github.com/gonutz/framebuffer"
 )
 
-const (
-	width, height = 600, 600
-	//centre        = width / 2.0
-	degreesIncr = 0.1 * math.Pi / 180
-	turns       = 2
-	stop        = 360 * turns * 10 * degreesIncr
-)
-
-const (
-	fbFileName     = "/dev/fb0"
-	fontFile       = "LeagueMono-Regular.ttf"
-	configFileName = "page.json"
-)
+const fontFile = "LeagueMono-Regular.ttf"
 
 // PageT describes the contents of a fbinfogrid page (display)
 type PageT struct {
@@ -59,8 +68,16 @@ type CellT struct {
 	picture      *image.RGBA
 }
 
+// program arguments
+var (
+	configFlag = flag.String("config", "config.json", "JSON file describing the information layout")
+	fbdevFlag  = flag.String("fbdev", "/dev/fb0", "framebuffer device file")
+)
+
 func main() {
-	fb, err := framebuffer.Open(fbFileName)
+	flag.Parse()
+
+	fb, err := framebuffer.Open(*fbdevFlag)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +88,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	var page PageT
-	page.loadConfig(configFileName)
+	page.loadConfig(*configFlag)
 	fmt.Printf("Definition: for page %s is %v\n", page.Name, page)
 
 	cellWidth := bounds.Dx() / page.Cols
@@ -177,8 +194,8 @@ func writeText(font *truetype.Font, pts float64, img draw.Image, x, y int, text 
 	c.DrawString(text, pt)
 }
 
-func (page *PageT) loadConfig(confFile string) {
-	configFile, err := os.Open(configFileName)
+func (page *PageT) loadConfig(configFilename string) {
+	configFile, err := os.Open(configFilename)
 	if err != nil {
 		panic(err)
 	}

@@ -1,0 +1,43 @@
+{
+    "name": "Test Page",
+    "rows": 2,
+    "cols": 3,
+    "cells": [
+        {
+            "row": 1,
+            "col": 1,
+            "celltype": "day",
+            "refreshsecs": 1800
+        },
+        {
+            "row": 1,
+            "col": 2,
+            "celltype": "time",
+            "refreshsecs": 30
+        },
+        {
+            "row": 1,
+            "col": 3,
+            "celltype": "datemonth",
+            "refreshsecs": 1800
+        },
+        {
+            "row": 2,
+            "col": 1,
+            "celltype": "text",
+            "text": "2,1"
+        },
+        {
+            "row": 2,
+            "col": 2,
+            "celltype": "staticimage",
+            "source": "landscape.png"
+        },
+        {
+            "row": 2,
+            "col": 3,
+            "celltype": "text",
+            "text": "2,3"
+        }
+    ]
+}
