@@ -1,0 +1,60 @@
+{
+    "name": "Test Page",
+    "rows": 3,
+    "cols": 3,
+    "cells": [
+        {
+            "row": 1,
+            "col": 1,
+            "celltype": "day",
+            "refreshsecs": 1800
+        },
+        {
+            "row": 1,
+            "col": 2,
+            "celltype": "time",
+            "refreshsecs": 30
+        },
+        {
+            "row": 1,
+            "col": 3,
+            "celltype": "datemonth",
+            "refreshsecs": 1800
+        },
+        {
+            "row": 2,
+            "col": 1,
+            "celltype": "text",
+            "text": "2,1"
+        },
+        {
+            "row": 2,
+            "col": 2,
+            "celltype": "staticimage",
+            "source": "landscape.png"
+        },
+        {
+            "row": 2,
+            "col": 3,
+            "celltype": "text",
+            "text": "2,3"
+        },
+        {
+            "row": 3,
+            "col": 1,
+            "celltype": "urlimage",
+            "source": "https://homepages.cae.wisc.edu/~ece533/images/tulips.png"
+        },
+        {
+            "row": 3,
+            "col": 2,
+            "celltype": "day"
+        },
+        {
+            "row": 3,
+            "col": 3,
+            "celltype": "urlimage",
+            "source": "http://imageswebcam.cabestany.fr/recup/webcam.cabestany.fr.jpg"
+        }
+    ]
+}
