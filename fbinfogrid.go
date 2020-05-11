@@ -19,8 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Must do  this first: sudo fbset -fb /dev/fb0 -depth 16
-// unless 16-bit framebuffer depth is set in config.txt
+// Old Advice: Must do this first: sudo fbset -fb /dev/fb0 -depth 16 unless 16-bit framebuffer depth is set in config.txt
+// Since late 2015 the default framebuffer depth under Raspbian is 32 bits, this yields the best performance.
 
 package main
 
@@ -42,7 +42,6 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
-	"github.com/gonutz/framebuffer"
 )
 
 const fontFile = "LeagueMono-Regular.ttf"
@@ -65,7 +64,7 @@ type CellT struct {
 	font         *truetype.Font
 	fontPts      float64
 	positionRect image.Rectangle
-	picture      *image.RGBA
+	picture      *image.NRGBA // .RGBA
 }
 
 // program arguments
@@ -77,11 +76,11 @@ var (
 func main() {
 	flag.Parse()
 
-	fb, err := framebuffer.Open(*fbdevFlag)
+	fb, err := Open(*fbdevFlag)
 	if err != nil {
 		panic(err)
 	}
-	defer fb.Close()
+	//defer fb.Close()
 	bounds := fb.Bounds()
 
 	var updateMu sync.Mutex
@@ -93,6 +92,7 @@ func main() {
 
 	cellWidth := bounds.Dx() / page.Cols
 	cellHeight := bounds.Dy() / page.Rows
+	fmt.Printf("Page size in pixels is  %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
 	fmt.Printf("Calculated cell size is %d x %d (w x h)\n", cellWidth, cellHeight)
 	cellSize := image.Rect(0, 0, cellWidth, cellHeight)
 
@@ -107,7 +107,7 @@ func main() {
 		topLeftY := (cell.Row - 1) * cellHeight
 
 		cell.positionRect = image.Rect(topLeftX, topLeftY, topLeftX+cellWidth, topLeftY+cellHeight) // where it will be drawn
-		cell.picture = image.NewRGBA(cellSize)
+		cell.picture = image.NewNRGBA(cellSize)
 		cell.font = font
 
 		switch cell.CellType {
@@ -167,7 +167,8 @@ func main() {
 	//draw.Draw(fb, bounds, black, image.ZP, draw.Src)
 }
 
-func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb *framebuffer.Device, cell CellT, format string) {
+//func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb *framebuffer.Device, cell CellT, format string) {
+func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT, format string) {
 	for {
 		timeStr := time.Now().Format(format)
 		updateMu.Lock()
