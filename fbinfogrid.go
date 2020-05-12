@@ -133,7 +133,7 @@ func main() {
 				cell.FontPts = 80.0
 			}
 			updateMu.Lock()
-			writeText(font, cell.FontPts, cell.picture, 0, cell.picture.Bounds().Dy()/2, cell.Text)
+			writeText(font, cell.FontPts, cell.picture, cell.Text)
 			draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
 			updateMu.Unlock()
 		case "time":
@@ -183,7 +183,7 @@ func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell Cell
 		timeStr := time.Now().Format(format)
 		updateMu.Lock()
 		draw.Draw(cell.picture, cell.picture.Bounds(), image.Black, image.ZP, draw.Src)
-		writeText(cell.font, cell.FontPts, cell.picture, 0, cell.picture.Bounds().Dy()/2, timeStr)
+		writeText(cell.font, cell.FontPts, cell.picture, timeStr)
 		draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
 		updateMu.Unlock()
 		if cell.RefreshSecs == 0 {
@@ -216,7 +216,7 @@ func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 	}
 }
 
-func writeText(tfont *truetype.Font, pts float64, img draw.Image, tx, ty int, text string) {
+func writeText(tfont *truetype.Font, pts float64, img draw.Image, text string) {
 	d := &font.Drawer{
 		Dst: img,
 		Src: image.White,
@@ -226,9 +226,13 @@ func writeText(tfont *truetype.Font, pts float64, img draw.Image, tx, ty int, te
 		}),
 	}
 	textBounds, _ := d.BoundString(text)
+	// fmt.Printf("Bounds for %s are: %v\n", text, textBounds)
+	w := textBounds.Max.X - textBounds.Min.X
+	h := textBounds.Max.Y - textBounds.Min.Y
 	d.Dot = fixed.Point26_6{
-		X: (fixed.I(img.Bounds().Dx()) - textBounds.Max.X) / 2,
-		Y: (fixed.I(img.Bounds().Dy()) - textBounds.Max.Y) / 2,
+		X: (fixed.I(img.Bounds().Dx()) - w) / 2,
+		// Y: (fixed.I(img.Bounds().Dy()) - textBounds.Max.Y) / 2,
+		Y: fixed.I(img.Bounds().Dy()/2) + (h / 2),
 	}
 	d.DrawString(text)
 }
