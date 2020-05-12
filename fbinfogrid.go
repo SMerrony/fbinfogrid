@@ -42,6 +42,8 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
 )
 
 const fontFile = "LeagueMono-Regular.ttf"
@@ -88,12 +90,12 @@ func main() {
 
 	var page PageT
 	page.loadConfig(*configFlag)
-	fmt.Printf("Definition: for page %s is %v\n", page.Name, page)
+	// fmt.Printf("Definition: for page %s is %v\n", page.Name, page)
 
 	cellWidth := bounds.Dx() / page.Cols
 	cellHeight := bounds.Dy() / page.Rows
-	fmt.Printf("Page size in pixels is  %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
-	fmt.Printf("Calculated cell size is %d x %d (w x h)\n", cellWidth, cellHeight)
+	fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
+	fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", cellWidth, cellHeight)
 	cellSize := image.Rect(0, 0, cellWidth, cellHeight)
 
 	bg := image.Black
@@ -214,15 +216,21 @@ func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 	}
 }
 
-func writeText(font *truetype.Font, pts float64, img draw.Image, x, y int, text string) {
-	c := freetype.NewContext()
-	c.SetFont(font)
-	c.SetFontSize(pts)
-	c.SetClip(img.Bounds())
-	c.SetDst(img)
-	c.SetSrc(image.White)
-	pt := freetype.Pt(x, y)
-	c.DrawString(text, pt)
+func writeText(tfont *truetype.Font, pts float64, img draw.Image, tx, ty int, text string) {
+	d := &font.Drawer{
+		Dst: img,
+		Src: image.White,
+		Face: truetype.NewFace(tfont, &truetype.Options{
+			Size:    pts,
+			Hinting: font.HintingFull,
+		}),
+	}
+	textBounds, _ := d.BoundString(text)
+	d.Dot = fixed.Point26_6{
+		X: (fixed.I(img.Bounds().Dx()) - textBounds.Max.X) / 2,
+		Y: (fixed.I(img.Bounds().Dy()) - textBounds.Max.Y) / 2,
+	}
+	d.DrawString(text)
 }
 
 func (page *PageT) loadConfig(configFilename string) {
