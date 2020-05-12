@@ -30,7 +30,7 @@
         {
             "row": 2,
             "col": 2,
-            "celltype": "staticimage",
+            "celltype": "localimage",
             "source": "landscape.png"
         },
         {

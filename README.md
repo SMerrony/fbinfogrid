@@ -13,14 +13,17 @@ otherwise the program will end once the grid has been drawn.
 ## Configuration
 See the included demoX.json files for configuration examples.
 
-Currently defined information cell types are...
+Every cell must have ```row```, ```col```, and ```celltype``` specified.
 
-|   Type      |  Description                   |  Usage  |
-|-------------|--------------------------------|---------|
-| datemonth   | eg. "2 Jan"                    | May set "refreshsecs" to be eg. 1800 |
-| day         | eg. "Mon"                      | May set "refreshsecs" to be eg. 1800 |
-| staticimage | An image that is never updated | Must specify local path as "source" |
-| text        | Text that is never updated     | Must specify a string as "text"  |
-| time        | eg. "15:04"                    | May set "refreshsecs" to be eg. 30 |
-| urlimage    | An image (JPEG/PNG) from a URL | Must set "source" as the direct URL |
+Currently defined information cell types and associated attributes are...
 
+|   Type      |  Description                   | FontPts | RefreshSecs | Source | Text |
+|-------------|--------------------------------|---------|-------------|--------|------|
+| datemonth   | eg. "2 Jan"                    |    Y    |      Y      |    N   |   N  |
+| day         | eg. "Mon"                      |    Y    |      Y      |    N   |   N  |
+| localimage  | An image stored locally        |    N    |      Y      |    Y*  |   N  |
+| text        | Text that is never updated     |    Y    |      N      |    N   |   Y* |
+| time        | eg. "15:04"                    |    Y    |      Y      |    N   |   N  |
+| urlimage    | An image (JPEG/PNG) from a URL |    N    |      Y      |    Y*  |   N  |
+
+(* these attributes _must_ be specified)

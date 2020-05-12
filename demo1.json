@@ -30,14 +30,15 @@
         {
             "row": 2,
             "col": 2,
-            "celltype": "staticimage",
+            "celltype": "localimage",
             "source": "landscape.png"
         },
         {
             "row": 2,
             "col": 3,
-            "celltype": "text",
-            "text": "2,3"
+            "celltype": "urlimage",
+            "source": "https://www.webcam-autoroute.eu/images/3000-france-midi-pyrenees-toulouse-a61-pres-de-toulouse-vue-sur-la-gauche-orientee-vers-montpellier-et-sur-la-droite-vers-toulouse-cent.jpg",
+            "refreshsecs": 120
         },
         {
             "row": 3,
@@ -48,13 +49,15 @@
         {
             "row": 3,
             "col": 2,
-            "celltype": "day"
+            "celltype": "day",
+            "fontpts": 100
         },
         {
             "row": 3,
             "col": 3,
             "celltype": "urlimage",
-            "source": "http://imageswebcam.cabestany.fr/recup/webcam.cabestany.fr.jpg"
+            "source": "http://imageswebcam.cabestany.fr/recup/webcam.cabestany.fr.jpg",
+            "refreshsecs": 300
         }
     ]
 }

@@ -60,9 +60,9 @@ type CellT struct {
 	RefreshSecs      int
 	CellType         string
 	Source, Text     string
+	FontPts          float64
 	// private fields used in code...
 	font         *truetype.Font
-	fontPts      float64
 	positionRect image.Rectangle
 	picture      *image.NRGBA // .RGBA
 }
@@ -112,51 +112,37 @@ func main() {
 
 		switch cell.CellType {
 		case "datemonth":
-			cell.fontPts = 80.0
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 80.0
+			}
 			wg.Add(1)
 			go drawTime(&wg, &updateMu, fb, cell, "2 Jan")
 		case "day":
-			cell.fontPts = 80.0
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 80.0
+			}
 			wg.Add(1)
 			go drawTime(&wg, &updateMu, fb, cell, "Mon")
-		case "staticimage":
-			i, err := os.Open(cell.Source)
-			if err != nil {
-				panic(err)
-			}
-			defer i.Close()
-			sImg, _, err := image.Decode(i)
-			sImg = imaging.Resize(sImg, cellWidth, 0, imaging.NearestNeighbor)
-			if err != nil {
-				panic(err)
-			}
-			updateMu.Lock()
-			draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
-			updateMu.Unlock()
+		case "localimage":
+			wg.Add(1)
+			go drawLocalImage(&wg, &updateMu, fb, cell)
 		case "text":
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 80.0
+			}
 			updateMu.Lock()
-			writeText(font, 96.0, cell.picture, 0, cell.picture.Bounds().Dy()/2, cell.Text)
+			writeText(font, cell.FontPts, cell.picture, 0, cell.picture.Bounds().Dy()/2, cell.Text)
 			draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
 			updateMu.Unlock()
 		case "time":
-			cell.fontPts = 128.0
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 128.0
+			}
 			wg.Add(1)
 			go drawTime(&wg, &updateMu, fb, cell, "15:04")
 		case "urlimage":
-			i, err := http.Get(cell.Source)
-			if err == nil { // ignore errors here
-				defer i.Body.Close()
-				sImg, _, err := image.Decode(i.Body)
-				if err != nil {
-
-					panic(err)
-				}
-				sImg = imaging.Resize(sImg, cellWidth, 0, imaging.NearestNeighbor)
-				//draw.Draw(txt, cell.positionRect, sImg, image.ZP, draw.Src)
-				updateMu.Lock()
-				draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
-				updateMu.Unlock()
-			}
+			wg.Add(1)
+			go drawURLImage(&wg, &updateMu, fb, cell)
 		}
 	}
 
@@ -167,13 +153,35 @@ func main() {
 	//draw.Draw(fb, bounds, black, image.ZP, draw.Src)
 }
 
-//func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb *framebuffer.Device, cell CellT, format string) {
+func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+	for {
+		i, err := os.Open(cell.Source)
+		if err != nil {
+			panic(err)
+		}
+		defer i.Close()
+		sImg, _, err := image.Decode(i)
+		sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), 0, imaging.NearestNeighbor)
+		if err != nil {
+			panic(err)
+		}
+		updateMu.Lock()
+		draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
+		updateMu.Unlock()
+		if cell.RefreshSecs == 0 {
+			wg.Done()
+			return
+		}
+		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	}
+}
+
 func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT, format string) {
 	for {
 		timeStr := time.Now().Format(format)
 		updateMu.Lock()
 		draw.Draw(cell.picture, cell.picture.Bounds(), image.Black, image.ZP, draw.Src)
-		writeText(cell.font, cell.fontPts, cell.picture, 0, cell.picture.Bounds().Dy()/2, timeStr)
+		writeText(cell.font, cell.FontPts, cell.picture, 0, cell.picture.Bounds().Dy()/2, timeStr)
 		draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
 		updateMu.Unlock()
 		if cell.RefreshSecs == 0 {
@@ -181,6 +189,28 @@ func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell Cell
 			return
 		}
 		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	}
+}
+
+func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+	for {
+		i, err := http.Get(cell.Source)
+		if err == nil { // ignore errors here
+			defer i.Body.Close()
+			sImg, _, err := image.Decode(i.Body)
+			if err != nil {
+				panic(err)
+			}
+			sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), 0, imaging.NearestNeighbor)
+			updateMu.Lock()
+			draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
+			updateMu.Unlock()
+			if cell.RefreshSecs == 0 {
+				wg.Done()
+				return
+			}
+			time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+		}
 	}
 }
 
