@@ -17,8 +17,9 @@ Every cell must have ```row```, ```col```, and ```celltype``` specified.
 
 Currently defined information cell types and associated attributes are...
 
-|   Type      |  Description                   | FontPts | RefreshSecs | Source | Text |
-|-------------|--------------------------------|---------|-------------|--------|------|
+|   Type      |  Description                   | fontpts | refreshsecs | source | text |
+|-------------|--------------------------------| :-----: | :---------: | :----: | :--: |
+| carousel    | Slideshow of images            |    N    |      Y*     |    **  |   N  |
 | datemonth   | eg. "2 Jan"                    |    Y    |      Y      |    N   |   N  |
 | day         | eg. "Mon"                      |    Y    |      Y      |    N   |   N  |
 | localimage  | An image stored locally        |    N    |      Y      |    Y*  |   N  |
@@ -27,3 +28,5 @@ Currently defined information cell types and associated attributes are...
 | urlimage    | An image (JPEG/PNG) from a URL |    N    |      Y      |    Y*  |   N  |
 
 (* these attributes _must_ be specified)
+
+(** must specify a ```sources``` array - see [demo03.json](demo03.json))  

@@ -25,8 +25,13 @@
         {
             "row": 2,
             "col": 1,
-            "celltype": "text",
-            "text": "2,1"
+            "celltype": "carousel",
+            "refreshsecs": 15,
+            "sources": [
+                "landscape.png",
+                "cadsidetray.png",
+                "winterTrees1.jpg"
+            ]
         },
         {
             "row": 2,

@@ -32,6 +32,7 @@ import (
 	"image/draw"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -62,6 +63,7 @@ type CellT struct {
 	RefreshSecs      int
 	CellType         string
 	Source, Text     string
+	Sources          []string
 	FontPts          float64
 	// private fields used in code...
 	font         *truetype.Font
@@ -113,6 +115,9 @@ func main() {
 		cell.font = font
 
 		switch cell.CellType {
+		case "carousel":
+			wg.Add(1)
+			go drawCarousel(&wg, &updateMu, fb, cell)
 		case "datemonth":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 80.0
@@ -155,21 +160,36 @@ func main() {
 	//draw.Draw(fb, bounds, black, image.ZP, draw.Src)
 }
 
+// funcs for handling each cell type
+
+func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+	ix := -1
+	for {
+		if ix++; ix == len(cell.Sources) {
+			ix = 0
+		}
+		i, err := os.Open(cell.Sources[ix])
+		if err != nil {
+			panic(err)
+		}
+		drawImage(i, cell, updateMu, fb)
+		i.Close()
+		if cell.RefreshSecs == 0 {
+			wg.Done()
+			return
+		}
+		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	}
+}
+
 func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
 	for {
 		i, err := os.Open(cell.Source)
 		if err != nil {
 			panic(err)
 		}
-		defer i.Close()
-		sImg, _, err := image.Decode(i)
-		sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), 0, imaging.NearestNeighbor)
-		if err != nil {
-			panic(err)
-		}
-		updateMu.Lock()
-		draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
-		updateMu.Unlock()
+		drawImage(i, cell, updateMu, fb)
+		i.Close()
 		if cell.RefreshSecs == 0 {
 			wg.Done()
 			return
@@ -198,15 +218,8 @@ func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 	for {
 		i, err := http.Get(cell.Source)
 		if err == nil { // ignore errors here
-			defer i.Body.Close()
-			sImg, _, err := image.Decode(i.Body)
-			if err != nil {
-				panic(err)
-			}
-			sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), 0, imaging.NearestNeighbor)
-			updateMu.Lock()
-			draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
-			updateMu.Unlock()
+			drawImage(i.Body, cell, updateMu, fb)
+			i.Body.Close()
 			if cell.RefreshSecs == 0 {
 				wg.Done()
 				return
@@ -265,4 +278,17 @@ func loadFont(fontFile string) *truetype.Font {
 		return nil
 	}
 	return font
+}
+
+// helper funcs
+
+func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
+	sImg, _, err := image.Decode(img)
+	if err != nil {
+		panic(err)
+	}
+	sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), 0, imaging.NearestNeighbor)
+	updateMu.Lock()
+	draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
+	updateMu.Unlock()
 }
