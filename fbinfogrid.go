@@ -84,7 +84,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	//defer fb.Close()
 	bounds := fb.Bounds()
 
 	var updateMu sync.Mutex
@@ -98,7 +97,6 @@ func main() {
 	cellHeight := bounds.Dy() / page.Rows
 	fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
 	fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", cellWidth, cellHeight)
-	cellSize := image.Rect(0, 0, cellWidth, cellHeight)
 
 	bg := image.Black
 	draw.Draw(fb, bounds, bg, image.ZP, draw.Src)
@@ -110,8 +108,15 @@ func main() {
 		topLeftX := (cell.Col - 1) * cellWidth
 		topLeftY := (cell.Row - 1) * cellHeight
 
-		cell.positionRect = image.Rect(topLeftX, topLeftY, topLeftX+cellWidth, topLeftY+cellHeight) // where it will be drawn
-		cell.picture = image.NewNRGBA(cellSize)
+		if cell.Rowspan == 0 {
+			cell.Rowspan = 1
+		}
+		if cell.Colspan == 0 {
+			cell.Colspan = 1
+		}
+		// calculate where and how big it will be drawn
+		cell.positionRect = image.Rect(topLeftX, topLeftY, topLeftX+(cellWidth*cell.Colspan), topLeftY+(cellHeight*cell.Rowspan))
+		cell.picture = image.NewNRGBA(image.Rect(0, 0, cellWidth*cell.Colspan, cellHeight*cell.Rowspan))
 		cell.font = font
 
 		switch cell.CellType {
@@ -287,7 +292,7 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
 	if err != nil {
 		panic(err)
 	}
-	sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), 0, imaging.NearestNeighbor)
+	sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), cell.picture.Bounds().Dy(), imaging.NearestNeighbor)
 	updateMu.Lock()
 	draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
 	updateMu.Unlock()

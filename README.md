@@ -1,5 +1,5 @@
 # fbinfogrid
-Display a configurable grid of information and images on the Raspberry Pi framebuffer
+Display a configurable grid of information and images on the Raspberry Pi framebuffer.
 
 ## Usage
 Type ```./fbinfogrid -h``` for help.  
@@ -13,7 +13,11 @@ otherwise the program will end once the grid has been drawn.
 ## Configuration
 See the included demoX.json files for configuration examples.
 
-Every cell must have ```row```, ```col```, and ```celltype``` specified.
+Every cell **must** have ```row```, ```col```, and ```celltype``` specified.
+
+You **may** also specify ```rowspan``` and ```colspan``` for any cell;
+see [demo04.json](demo04.json) for a an example.
+Note that the behaviour of overlapping cells is currently undefined.
 
 Currently defined information cell types and associated attributes are...
 
@@ -27,6 +31,9 @@ Currently defined information cell types and associated attributes are...
 | time        | eg. "15:04"                    |    Y    |      Y      |    N   |   N  |
 | urlimage    | An image (JPEG/PNG) from a URL |    N    |      Y      |    Y*  |   N  |
 
-(* these attributes _must_ be specified)
+(* these attributes **must** be specified)
 
-(** must specify a ```sources``` array - see [demo03.json](demo03.json))  
+(** **must** specify a ```sources``` array - see [demo03.json](demo03.json))  
+
+Image cells that refresh (i.e. have a non-zero ```refreshsecs```) reload the image on each refresh, 
+so if the underlying file changes that change will appear on the next refresh.

@@ -1,5 +1,5 @@
 {
-    "name": "Test Page showing most features",
+    "name": "Carousel Test Page with spans",
     "rows": 3,
     "cols": 3,
     "cells": [
@@ -38,16 +38,14 @@
         {
             "row": 2,
             "col": 3,
-            "celltype": "urlimage",
-            "source": "https://www.webcam-autoroute.eu/images/3000-france-midi-pyrenees-toulouse-a61-pres-de-toulouse-vue-sur-la-gauche-orientee-vers-montpellier-et-sur-la-droite-vers-toulouse-cent.jpg",
-            "refreshsecs": 120
+            "celltype": "day",
+            "refreshsecs": 1800
         },
         {
             "row": 3,
             "col": 3,
-            "celltype": "urlimage",
-            "source": "http://imageswebcam.cabestany.fr/recup/webcam.cabestany.fr.jpg",
-            "refreshsecs": 300
+            "celltype": "datemonth",
+            "refreshsecs": 1800
         }
     ]
 }
