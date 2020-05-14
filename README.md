@@ -37,3 +37,6 @@ Currently defined information cell types and associated attributes are...
 
 Image cells that refresh (i.e. have a non-zero ```refreshsecs```) reload the image on each refresh, 
 so if the underlying file changes that change will appear on the next refresh.
+
+Images are scaled to fill the cell whilst maintaining their original aspect ratio.
+This will result in a certain amount of cropping if the image and cell proportions differ.

@@ -248,8 +248,7 @@ func writeText(tfont *truetype.Font, pts float64, img draw.Image, text string) {
 	w := textBounds.Max.X - textBounds.Min.X
 	h := textBounds.Max.Y - textBounds.Min.Y
 	d.Dot = fixed.Point26_6{
-		X: (fixed.I(img.Bounds().Dx()) - w) / 2,
-		// Y: (fixed.I(img.Bounds().Dy()) - textBounds.Max.Y) / 2,
+		X: fixed.I(img.Bounds().Dx()/2) - (w / 2),
 		Y: fixed.I(img.Bounds().Dy()/2) + (h / 2),
 	}
 	d.DrawString(text)
@@ -292,8 +291,16 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
 	if err != nil {
 		panic(err)
 	}
-	sImg = imaging.Resize(sImg, cell.picture.Bounds().Dx(), cell.picture.Bounds().Dy(), imaging.NearestNeighbor)
+	w := cell.picture.Bounds().Dx()
+	h := cell.picture.Bounds().Dy()
+	//sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
+	// sp := image.Point{
+	// 	X: (sImg.Bounds().Dx() / 2) - (w / 2),
+	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),
+	// }
+	sImg = imaging.Fill(sImg, w, h, imaging.Center, imaging.NearestNeighbor)
+	sp := image.Point{0, 0}
 	updateMu.Lock()
-	draw.Draw(fb, cell.positionRect, sImg, image.ZP, draw.Src)
+	draw.Draw(fb, cell.positionRect, sImg, sp, draw.Src)
 	updateMu.Unlock()
 }
