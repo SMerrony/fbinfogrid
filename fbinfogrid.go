@@ -167,6 +167,7 @@ func main() {
 
 // funcs for handling each cell type
 
+// drawCarousel goroutine to show rotating selection of images indefinitely
 func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
 	ix := -1
 	for {
@@ -179,7 +180,7 @@ func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 		}
 		drawImage(i, cell, updateMu, fb)
 		i.Close()
-		if cell.RefreshSecs == 0 {
+		if cell.RefreshSecs == 0 { // if there is no refreshsecs set then we exit
 			wg.Done()
 			return
 		}
@@ -187,6 +188,7 @@ func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 	}
 }
 
+// drawLocalImage goroutine to display an image from the filesystem
 func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
 	for {
 		i, err := os.Open(cell.Source)
@@ -203,6 +205,7 @@ func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cel
 	}
 }
 
+// drawTime goroutine to display the currnent time using the supplied format
 func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT, format string) {
 	for {
 		timeStr := time.Now().Format(format)
@@ -219,6 +222,7 @@ func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell Cell
 	}
 }
 
+// drawURLImage goroutine to display a remote image
 func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
 	for {
 		i, err := http.Get(cell.Source)
@@ -234,6 +238,7 @@ func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 	}
 }
 
+// writeText is a one-shot func to display a short string
 func writeText(tfont *truetype.Font, pts float64, img draw.Image, text string) {
 	d := &font.Drawer{
 		Dst: img,
@@ -293,7 +298,7 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
 	}
 	w := cell.picture.Bounds().Dx()
 	h := cell.picture.Bounds().Dy()
-	//sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
+	// sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
 	// sp := image.Point{
 	// 	X: (sImg.Bounds().Dx() / 2) - (w / 2),
 	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),

@@ -39,15 +39,15 @@
             "row": 2,
             "col": 3,
             "celltype": "urlimage",
-            "source": "https://www.webcam-autoroute.eu/images/3000-france-midi-pyrenees-toulouse-a61-pres-de-toulouse-vue-sur-la-gauche-orientee-vers-montpellier-et-sur-la-droite-vers-toulouse-cent.jpg",
-            "refreshsecs": 120
+            "source": "http://www.vision-environnement.com/live/modules/timelapse/capture/montauban.jpg",
+            "refreshsecs": 900
         },
         {
             "row": 3,
             "col": 3,
             "celltype": "urlimage",
             "source": "http://imageswebcam.cabestany.fr/recup/webcam.cabestany.fr.jpg",
-            "refreshsecs": 300
+            "refreshsecs": 900
         }
     ]
 }
