@@ -39,13 +39,12 @@
         {
             "row": 2,
             "col": 3,
-            "celltype": "day",
-            "refreshsecs": 1800
+            "celltype": "hostname"
         },
         {
             "row": 3,
             "col": 3,
-            "celltype": "datemonth",
+            "celltype": "daydatemonth",
             "refreshsecs": 1800
         }
     ]

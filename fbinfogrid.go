@@ -142,6 +142,21 @@ func main() {
 			}
 			wg.Add(1)
 			go drawTime(&wg, &updateMu, fb, cell, "Mon")
+		case "daydatemonth":
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 80.0
+			}
+			wg.Add(1)
+			go drawTime(&wg, &updateMu, fb, cell, "Mon 2 Jan")
+		case "hostname":
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 80.0
+			}
+			hn, _ := os.Hostname()
+			updateMu.Lock()
+			writeText(font, cell.FontPts, cell.picture, hn)
+			draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+			updateMu.Unlock()
 		case "localimage":
 			wg.Add(1)
 			go drawLocalImage(&wg, &updateMu, fb, cell)
