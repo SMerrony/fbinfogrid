@@ -42,6 +42,7 @@ Currently defined information cell types and associated attributes are...
 | day         | eg. "Mon"                      |    Y    |      Y      |    N   |   N  |
 | daydatemonth | eg. "Mon 2 Jan"               |    Y    |      Y      |    N   |   N  |
 | hostname    | eg. "raspipi01"                |    Y    |      N      |    N   |   N  |
+| isalive     | Is a host reachable?           |    Y    |      Y*     |    Y*  |   Y  |
 | localimage  | An image stored locally        |    N    |      Y      |    Y*  |   N  |
 | text        | Text that is never updated     |    Y    |      N      |    N   |   Y* |
 | time        | eg. "15:04"                    |    Y    |      Y      |    N   |   N  |

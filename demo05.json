@@ -1,0 +1,36 @@
+{
+    "name": "IsAlive Test Page",
+    "rows": 2,
+    "cols": 2,
+    "cells": [
+        {
+            "row": 1,
+            "col": 1,
+            "celltype": "isalive",
+            "source": "brother-a3-mfc.lan:80",
+            "text": "Brother Printer",
+            "refreshsecs": 60
+        },
+        {
+            "row": 1,
+            "col": 2,
+            "celltype": "isalive",
+            "source": "192.168.1.10:80",
+            "refreshsecs": 60 
+        },
+        {
+            "row": 2,
+            "col": 1,
+            "celltype": "isalive",
+            "source": "silly:80",
+            "refreshsecs": 60
+        },
+        {
+            "row": 2,
+            "col": 2,
+            "celltype": "isalive",
+            "source": "192.168.1.88:80",
+            "refreshsecs": 60
+        }
+    ]
+}

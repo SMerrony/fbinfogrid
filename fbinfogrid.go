@@ -29,13 +29,16 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -157,6 +160,12 @@ func main() {
 			writeText(font, cell.FontPts, cell.picture, hn)
 			draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
 			updateMu.Unlock()
+		case "isalive":
+			if cell.RefreshSecs == 0 {
+				panic("Must set refreshsecs for cell type isalive")
+			}
+			wg.Add(1)
+			go drawIsAlive(&wg, &updateMu, fb, cell, font)
 		case "localimage":
 			wg.Add(1)
 			go drawLocalImage(&wg, &updateMu, fb, cell)
@@ -203,6 +212,36 @@ func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 		drawImage(i, cell, updateMu, fb)
 		i.Close()
 		if cell.RefreshSecs == 0 { // if there is no refreshsecs set then we exit
+			wg.Done()
+			return
+		}
+		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	}
+}
+
+// drawIsAlive goroutine to display an indicator that a host is accessible
+func drawIsAlive(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT, tfont *truetype.Font) {
+	if cell.FontPts == 0.0 {
+		cell.FontPts = 60.0
+	}
+	if cell.Text == "" {
+		cell.Text = strings.Split(cell.Source, ":")[0]
+	}
+	red := image.NewUniform(color.RGBA{255, 0, 0, 255})
+	green := image.NewUniform(color.RGBA{0, 255, 0, 255})
+	for {
+		c, err := net.DialTimeout("tcp", cell.Source, time.Second*time.Duration(cell.RefreshSecs))
+		if err != nil {
+			draw.Draw(cell.picture, cell.picture.Bounds(), red, image.ZP, draw.Src)
+		} else {
+			c.Close()
+			draw.Draw(cell.picture, cell.picture.Bounds(), green, image.ZP, draw.Src)
+		}
+		updateMu.Lock()
+		writeText(tfont, cell.FontPts, cell.picture, cell.Text)
+		draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+		updateMu.Unlock()
+		if cell.RefreshSecs == 0 {
 			wg.Done()
 			return
 		}
