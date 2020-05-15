@@ -34,7 +34,6 @@ import (
 	_ "image/png"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -47,13 +46,18 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-const fontFile = "LeagueMono-Regular.ttf"
+const (
+	defaultConfig      = "config.json"
+	defaultFont        = "LeagueMono-Regular.ttf"
+	defaultFramebuffer = "/dev/fb0"
+)
 
 // PageT describes the contents of a fbinfogrid page (display)
 type PageT struct {
 	Name       string
 	Rows, Cols int
 	Cells      []CellT
+	FontFile   string
 }
 
 // CellT describes a piece of information on a page
@@ -73,8 +77,8 @@ type CellT struct {
 
 // program arguments
 var (
-	configFlag = flag.String("config", "config.json", "JSON file describing the information layout")
-	fbdevFlag  = flag.String("fbdev", "/dev/fb0", "framebuffer device file")
+	configFlag = flag.String("config", defaultConfig, "JSON file describing the information layout")
+	fbdevFlag  = flag.String("fbdev", defaultFramebuffer, "framebuffer device file")
 )
 
 func main() {
@@ -91,6 +95,9 @@ func main() {
 
 	var page PageT
 	page.loadConfig(*configFlag)
+	if page.FontFile == "" {
+		page.FontFile = defaultFont
+	}
 	// fmt.Printf("Definition: for page %s is %v\n", page.Name, page)
 
 	cellWidth := bounds.Dx() / page.Cols
@@ -101,7 +108,7 @@ func main() {
 	bg := image.Black
 	draw.Draw(fb, bounds, bg, image.ZP, draw.Src)
 
-	font := loadFont(fontFile)
+	font := loadFont(page.FontFile)
 
 	//for {
 	for _, cell := range page.Cells {
@@ -278,13 +285,11 @@ func (page *PageT) loadConfig(configFilename string) {
 func loadFont(fontFile string) *truetype.Font {
 	fontBytes, err := ioutil.ReadFile(fontFile)
 	if err != nil {
-		log.Println(err)
-		return nil
+		panic(err)
 	}
 	font, err := freetype.ParseFont(fontBytes)
 	if err != nil {
-		log.Println(err)
-		return nil
+		panic(err)
 	}
 	return font
 }

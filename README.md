@@ -13,6 +13,20 @@ otherwise the program will end once the grid has been drawn.
 ## Configuration
 See the included demoX.json files for configuration examples.
 
+The configuration describes a page of cells.  
+
+### Page
+Page attributes are...
+
+| Type | Compulsory | Description |
+|------| :--------: |-------------|
+| name |     N      | Page description |
+| rows |     Y      | No. of rows |
+| cols |     Y      | No. of columns |
+| fontfile | N      | Path of a TTF font, defaults to supplied LeagueMono-Regular.ttf |
+
+### Cells
+
 Every cell **must** have ```row```, ```col```, and ```celltype``` specified.
 
 You **may** also specify ```rowspan``` and ```colspan``` for any cell;

@@ -2,6 +2,7 @@
     "name": "Carousel Test Page with spans",
     "rows": 3,
     "cols": 3,
+    "fontfile": "OpenSansCondensed-Bold.ttf",
     "cells": [
         {
             "row": 1,
