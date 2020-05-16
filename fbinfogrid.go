@@ -64,7 +64,7 @@ type PageT struct {
 }
 
 // CellT describes a piece of information on a page
-type CellT struct {
+type CellT *struct {
 	Row, Col         int
 	Rowspan, Colspan int
 	RefreshSecs      int
@@ -73,7 +73,10 @@ type CellT struct {
 	Sources          []string
 	FontPts          float64
 	// private fields used in code...
+	fn           func(*sync.WaitGroup, *sync.Mutex, draw.Image, CellT)
 	font         *truetype.Font
+	format       string // used by the date/time funcs
+	srcIx        int
 	positionRect image.Rectangle
 	picture      *image.NRGBA // .RGBA
 }
@@ -93,10 +96,13 @@ func main() {
 	}
 	bounds := fb.Bounds()
 
-	var updateMu sync.Mutex
-	var wg sync.WaitGroup
+	var (
+		updateMu sync.Mutex
+		wg       sync.WaitGroup
+		page     PageT
+		stoppers []chan bool
+	)
 
-	var page PageT
 	page.loadConfig(*configFlag)
 	if page.FontFile == "" {
 		page.FontFile = defaultFont
@@ -131,61 +137,62 @@ func main() {
 
 		switch cell.CellType {
 		case "carousel":
-			wg.Add(1)
-			go drawCarousel(&wg, &updateMu, fb, cell)
+			cell.srcIx = -1
+			cell.fn = drawCarousel
 		case "datemonth":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 80.0
 			}
-			wg.Add(1)
-			go drawTime(&wg, &updateMu, fb, cell, "2 Jan")
+			cell.format = "2 Jan"
+			cell.fn = drawTime // (wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT)
 		case "day":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 80.0
 			}
-			wg.Add(1)
-			go drawTime(&wg, &updateMu, fb, cell, "Mon")
+			cell.format = "Mon"
+			cell.fn = drawTime
 		case "daydatemonth":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 80.0
 			}
-			wg.Add(1)
-			go drawTime(&wg, &updateMu, fb, cell, "Mon 2 Jan")
+			cell.format = "Mon 2 Jan"
+			cell.fn = drawTime
 		case "hostname":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 80.0
 			}
-			hn, _ := os.Hostname()
-			updateMu.Lock()
-			writeText(font, cell.FontPts, cell.picture, hn)
-			draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
-			updateMu.Unlock()
+			cell.Text, _ = os.Hostname()
+			cell.fn = drawText
 		case "isalive":
 			if cell.RefreshSecs == 0 {
 				panic("Must set refreshsecs for cell type isalive")
 			}
-			wg.Add(1)
-			go drawIsAlive(&wg, &updateMu, fb, cell, font)
+			if cell.FontPts == 0.0 {
+				cell.FontPts = 60.0
+			}
+			if cell.Text == "" {
+				cell.Text = strings.Split(cell.Source, ":")[0]
+			}
+			cell.fn = drawIsAlive
 		case "localimage":
-			wg.Add(1)
-			go drawLocalImage(&wg, &updateMu, fb, cell)
+			cell.fn = drawLocalImage
 		case "text":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 80.0
 			}
-			updateMu.Lock()
-			writeText(font, cell.FontPts, cell.picture, cell.Text)
-			draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
-			updateMu.Unlock()
+			cell.fn = drawText
 		case "time":
 			if cell.FontPts == 0.0 {
 				cell.FontPts = 128.0
 			}
-			wg.Add(1)
-			go drawTime(&wg, &updateMu, fb, cell, "15:04")
+			cell.format = "15:04"
+			cell.fn = drawTime
 		case "urlimage":
-			wg.Add(1)
-			go drawURLImage(&wg, &updateMu, fb, cell)
+			cell.fn = drawURLImage
+		}
+		stopper := startOrExecute(&wg, &updateMu, fb, cell)
+		if stopper != nil {
+			stoppers = append(stoppers, stopper)
 		}
 	}
 
@@ -200,124 +207,91 @@ func main() {
 
 // drawCarousel goroutine to show rotating selection of images indefinitely
 func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
-	ix := -1
-	for {
-		if ix++; ix == len(cell.Sources) {
-			ix = 0
-		}
-		i, err := os.Open(cell.Sources[ix])
-		if err != nil {
-			panic(err)
-		}
-		drawImage(i, cell, updateMu, fb)
-		i.Close()
-		if cell.RefreshSecs == 0 { // if there is no refreshsecs set then we exit
-			wg.Done()
-			return
-		}
-		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	if cell.srcIx++; cell.srcIx == len(cell.Sources) {
+		cell.srcIx = 0
 	}
+	i, err := os.Open(cell.Sources[cell.srcIx])
+	if err != nil {
+		panic(err)
+	}
+	drawImage(i, cell, updateMu, fb)
+	i.Close()
 }
 
-// drawIsAlive goroutine to display an indicator that a host is accessible
-func drawIsAlive(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT, tfont *truetype.Font) {
-	if cell.FontPts == 0.0 {
-		cell.FontPts = 60.0
-	}
-	if cell.Text == "" {
-		cell.Text = strings.Split(cell.Source, ":")[0]
-	}
+// drawIsAlive displays an indicator that a host is accessible
+func drawIsAlive(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
 	red := image.NewUniform(color.RGBA{255, 0, 0, 255})
 	green := image.NewUniform(color.RGBA{0, 255, 0, 255})
-	for {
-		c, err := net.DialTimeout("tcp", cell.Source, time.Second*time.Duration(cell.RefreshSecs))
-		if err != nil {
-			draw.Draw(cell.picture, cell.picture.Bounds(), red, image.ZP, draw.Src)
-		} else {
-			c.Close()
-			draw.Draw(cell.picture, cell.picture.Bounds(), green, image.ZP, draw.Src)
-		}
-		updateMu.Lock()
-		writeText(tfont, cell.FontPts, cell.picture, cell.Text)
-		draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
-		updateMu.Unlock()
-		if cell.RefreshSecs == 0 {
-			wg.Done()
-			return
-		}
-		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	c, err := net.DialTimeout("tcp", cell.Source, time.Second*time.Duration(cell.RefreshSecs))
+	if err != nil {
+		draw.Draw(cell.picture, cell.picture.Bounds(), red, image.ZP, draw.Src)
+	} else {
+		c.Close()
+		draw.Draw(cell.picture, cell.picture.Bounds(), green, image.ZP, draw.Src)
 	}
+	updateMu.Lock()
+	writeText(cell.font, cell.FontPts, cell.picture, cell.Text)
+	draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+	updateMu.Unlock()
 }
 
-// drawLocalImage goroutine to display an image from the filesystem
+// drawLocalImage displays an image from the filesystem
 func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
-	for {
-		i, err := os.Open(cell.Source)
-		if err != nil {
-			panic(err)
-		}
-		drawImage(i, cell, updateMu, fb)
-		i.Close()
-		if cell.RefreshSecs == 0 {
-			wg.Done()
-			return
-		}
-		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
+	i, err := os.Open(cell.Source)
+	if err != nil {
+		panic(err)
 	}
+	drawImage(i, cell, updateMu, fb)
+	i.Close()
 }
 
-// drawTime goroutine to display the currnent time using the supplied format
-func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT, format string) {
-	for {
-		timeStr := time.Now().Format(format)
-		updateMu.Lock()
-		draw.Draw(cell.picture, cell.picture.Bounds(), image.Black, image.ZP, draw.Src)
-		writeText(cell.font, cell.FontPts, cell.picture, timeStr)
-		draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
-		updateMu.Unlock()
-		if cell.RefreshSecs == 0 {
-			wg.Done()
-			return
-		}
-		time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
-	}
+//drawText displays the cell's current text
+func drawText(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+	updateMu.Lock()
+	writeText(cell.font, cell.FontPts, cell.picture, cell.Text)
+	draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+	updateMu.Unlock()
 }
 
-// drawURLImage goroutine to display a remote image
+// drawTime displays the currnent time using the supplied format
+func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+	timeStr := time.Now().Format(cell.format)
+	updateMu.Lock()
+	draw.Draw(cell.picture, cell.picture.Bounds(), image.Black, image.ZP, draw.Src)
+	writeText(cell.font, cell.FontPts, cell.picture, timeStr)
+	draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+	updateMu.Unlock()
+}
+
+// drawURLImage displays a remote image
 func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
-	for {
-		i, err := http.Get(cell.Source)
-		if err == nil { // ignore errors here
-			drawImage(i.Body, cell, updateMu, fb)
-			i.Body.Close()
-			if cell.RefreshSecs == 0 {
-				wg.Done()
-				return
-			}
-			time.Sleep(time.Second * time.Duration(cell.RefreshSecs))
-		}
+	i, err := http.Get(cell.Source)
+	if err == nil { // ignore errors here
+		drawImage(i.Body, cell, updateMu, fb)
+		i.Body.Close()
 	}
 }
 
-// writeText is a one-shot func to display a short string
-func writeText(tfont *truetype.Font, pts float64, img draw.Image, text string) {
-	d := &font.Drawer{
-		Dst: img,
-		Src: image.White,
-		Face: truetype.NewFace(tfont, &truetype.Options{
-			Size:    pts,
-			Hinting: font.HintingFull,
-		}),
+// helper funcs
+
+// drawImage copies the cell's image into the target image (eg. framebuffer)
+func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
+	sImg, _, err := image.Decode(img)
+	if err != nil {
+		panic(err)
 	}
-	textBounds, _ := d.BoundString(text)
-	// fmt.Printf("Bounds for %s are: %v\n", text, textBounds)
-	w := textBounds.Max.X - textBounds.Min.X
-	h := textBounds.Max.Y - textBounds.Min.Y
-	d.Dot = fixed.Point26_6{
-		X: fixed.I(img.Bounds().Dx()/2) - (w / 2),
-		Y: fixed.I(img.Bounds().Dy()/2) + (h / 2),
-	}
-	d.DrawString(text)
+	w := cell.picture.Bounds().Dx()
+	h := cell.picture.Bounds().Dy()
+	// sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
+	// sp := image.Point{
+	// 	X: (sImg.Bounds().Dx() / 2) - (w / 2),
+	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),
+	// }
+	sImg = imaging.Fill(sImg, w, h, imaging.Center, imaging.NearestNeighbor)
+	sp := image.Point{0, 0}
+	updateMu.Lock()
+	draw.Draw(fb, cell.positionRect, sImg, sp, draw.Src)
+	updateMu.Unlock()
 }
 
 func (page *PageT) loadConfig(configFilename string) {
@@ -348,23 +322,47 @@ func loadFont(fontFile string) *truetype.Font {
 	return font
 }
 
-// helper funcs
-
-func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
-	sImg, _, err := image.Decode(img)
-	if err != nil {
-		panic(err)
+func startOrExecute(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) (stop chan bool) {
+	if cell.RefreshSecs == 0 {
+		// one-shot execute
+		cell.fn(wg, updateMu, fb, cell)
+		return nil
 	}
-	w := cell.picture.Bounds().Dx()
-	h := cell.picture.Bounds().Dy()
-	// sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
-	// sp := image.Point{
-	// 	X: (sImg.Bounds().Dx() / 2) - (w / 2),
-	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),
-	// }
-	sImg = imaging.Fill(sImg, w, h, imaging.Center, imaging.NearestNeighbor)
-	sp := image.Point{0, 0}
-	updateMu.Lock()
-	draw.Draw(fb, cell.positionRect, sImg, sp, draw.Src)
-	updateMu.Unlock()
+	// regular execution
+	cell.fn(wg, updateMu, fb, cell)
+	ticker := time.NewTicker(time.Second * time.Duration(cell.RefreshSecs))
+	stop = make(chan bool)
+	go func() { //wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image) { //}, cell CellT) {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				cell.fn(wg, updateMu, fb, cell)
+			}
+		}
+	}() //wg, updateMu, fb, cell)
+	wg.Add(1)
+	return stop
+}
+
+// writeText puts a short string on an image
+func writeText(tfont *truetype.Font, pts float64, img draw.Image, text string) {
+	d := &font.Drawer{
+		Dst: img,
+		Src: image.White,
+		Face: truetype.NewFace(tfont, &truetype.Options{
+			Size:    pts,
+			Hinting: font.HintingFull,
+		}),
+	}
+	textBounds, _ := d.BoundString(text)
+	// fmt.Printf("Bounds for %s are: %v\n", text, textBounds)
+	w := textBounds.Max.X - textBounds.Min.X
+	h := textBounds.Max.Y - textBounds.Min.Y
+	d.Dot = fixed.Point26_6{
+		X: fixed.I(img.Bounds().Dx()/2) - (w / 2),
+		Y: fixed.I(img.Bounds().Dy()/2) + (h / 2),
+	}
+	d.DrawString(text)
 }
