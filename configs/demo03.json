@@ -1,24 +1,28 @@
 {
-    "name": "Carousel Test Page",
-    "rows": 2,
-    "cols": 1,
-    "cells": [
+    "pages": [
         {
-            "row": 1,
-            "col": 1,
-            "celltype": "time",
-            "fontpts": 200,
-            "refreshsecs": 30
-        },
-        {
-            "row": 2,
-            "col": 1,
-            "celltype": "carousel",
-            "refreshsecs": 15,
-            "sources": [
-                "media/landscape.png",
-                "media/cadsidetray.png",
-                "media/winterTrees1.jpg"
+            "name": "Carousel Test Page",
+            "rows": 2,
+            "cols": 1,
+            "cells": [
+                {
+                    "row": 1,
+                    "col": 1,
+                    "celltype": "time",
+                    "fontpts": 200,
+                    "refreshsecs": 30
+                },
+                {
+                    "row": 2,
+                    "col": 1,
+                    "celltype": "carousel",
+                    "refreshsecs": 15,
+                    "sources": [
+                        "media/landscape.png",
+                        "media/cadsidetray.png",
+                        "media/winterTrees1.jpg"
+                    ]
+                }
             ]
         }
     ]

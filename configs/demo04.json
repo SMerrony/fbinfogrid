@@ -1,51 +1,55 @@
 {
-    "name": "Carousel Test Page with spans",
-    "rows": 3,
-    "cols": 3,
-    "fontfile": "OpenSansCondensed-Bold.ttf",
-    "cells": [
+    "pages": [
         {
-            "row": 1,
-            "col": 1,
-            "celltype": "day",
-            "refreshsecs": 1800
-        },
-        {
-            "row": 1,
-            "col": 2,
-            "celltype": "time",
-            "fontpts": 150,
-            "refreshsecs": 30
-        },
-        {
-            "row": 1,
-            "col": 3,
-            "celltype": "datemonth",
-            "refreshsecs": 1800
-        },
-        {
-            "row": 2,
-            "rowspan": 2,
-            "col": 1,
-            "colspan": 2,
-            "celltype": "carousel",
-            "refreshsecs": 15,
-            "sources": [
-                "media/landscape.png",
-                "media/cadsidetray.png",
-                "media/winterTrees1.jpg"
+            "name": "Carousel Test Page with spans",
+            "rows": 3,
+            "cols": 3,
+            "fontfile": "OpenSansCondensed-Bold.ttf",
+            "cells": [
+                {
+                    "row": 1,
+                    "col": 1,
+                    "celltype": "day",
+                    "refreshsecs": 1800
+                },
+                {
+                    "row": 1,
+                    "col": 2,
+                    "celltype": "time",
+                    "fontpts": 150,
+                    "refreshsecs": 30
+                },
+                {
+                    "row": 1,
+                    "col": 3,
+                    "celltype": "datemonth",
+                    "refreshsecs": 1800
+                },
+                {
+                    "row": 2,
+                    "rowspan": 2,
+                    "col": 1,
+                    "colspan": 2,
+                    "celltype": "carousel",
+                    "refreshsecs": 15,
+                    "sources": [
+                        "media/landscape.png",
+                        "media/cadsidetray.png",
+                        "media/winterTrees1.jpg"
+                    ]
+                },
+                {
+                    "row": 2,
+                    "col": 3,
+                    "celltype": "hostname"
+                },
+                {
+                    "row": 3,
+                    "col": 3,
+                    "celltype": "daydatemonth",
+                    "refreshsecs": 1800
+                }
             ]
-        },
-        {
-            "row": 2,
-            "col": 3,
-            "celltype": "hostname"
-        },
-        {
-            "row": 3,
-            "col": 3,
-            "celltype": "daydatemonth",
-            "refreshsecs": 1800
         }
     ]
 }

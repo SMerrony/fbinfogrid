@@ -55,12 +55,19 @@ const (
 	defaultFramebuffer = "/dev/fb0"
 )
 
+// ConfigT holds an fbinfogrid configuration (one or more Pages)
+type ConfigT struct {
+	Pages []PageT
+}
+
 // PageT describes the contents of a fbinfogrid page (display)
 type PageT struct {
-	Name       string
-	Rows, Cols int
-	Cells      []CellT
-	FontFile   string
+	Name          string
+	Rows, Cols    int
+	Cells         []CellT
+	FontFile      string
+	DurationMins  int
+	currentPageIx int
 }
 
 // CellT describes a piece of information on a page
@@ -76,7 +83,7 @@ type CellT *struct {
 	fn           func(*sync.WaitGroup, *sync.Mutex, draw.Image, CellT)
 	font         *truetype.Font
 	format       string // used by the date/time funcs
-	srcIx        int
+	currentSrcIx int
 	positionRect image.Rectangle
 	picture      *image.NRGBA // .RGBA
 }
@@ -99,11 +106,14 @@ func main() {
 	var (
 		updateMu sync.Mutex
 		wg       sync.WaitGroup
-		page     PageT
+		config   ConfigT
 		stoppers []chan bool
 	)
 
-	page.loadConfig(*configFlag)
+	config.loadConfig(*configFlag)
+
+	page := config.Pages[0]
+
 	if page.FontFile == "" {
 		page.FontFile = defaultFont
 	}
@@ -137,7 +147,7 @@ func main() {
 
 		switch cell.CellType {
 		case "carousel":
-			cell.srcIx = -1
+			cell.currentSrcIx = -1
 			cell.fn = drawCarousel
 		case "datemonth":
 			if cell.FontPts == 0.0 {
@@ -196,6 +206,12 @@ func main() {
 		}
 	}
 
+	// Test stopping the goroutines...
+	// time.Sleep(time.Minute * 2)
+	// for _, s := range stoppers {
+	// 	s <- true
+	// }
+
 	wg.Wait()
 
 	//}
@@ -207,10 +223,10 @@ func main() {
 
 // drawCarousel goroutine to show rotating selection of images indefinitely
 func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
-	if cell.srcIx++; cell.srcIx == len(cell.Sources) {
-		cell.srcIx = 0
+	if cell.currentSrcIx++; cell.currentSrcIx == len(cell.Sources) {
+		cell.currentSrcIx = 0
 	}
-	i, err := os.Open(cell.Sources[cell.srcIx])
+	i, err := os.Open(cell.Sources[cell.currentSrcIx])
 	if err != nil {
 		panic(err)
 	}
@@ -294,7 +310,7 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
 	updateMu.Unlock()
 }
 
-func (page *PageT) loadConfig(configFilename string) {
+func (config *ConfigT) loadConfig(configFilename string) {
 	configFile, err := os.Open(configFilename)
 	if err != nil {
 		panic(err)
@@ -304,7 +320,7 @@ func (page *PageT) loadConfig(configFilename string) {
 	if err != nil {
 		panic(err)
 	}
-	err = json.Unmarshal(configJSON, page)
+	err = json.Unmarshal(configJSON, config)
 	if err != nil {
 		panic(err)
 	}
@@ -336,6 +352,7 @@ func startOrExecute(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cel
 		for {
 			select {
 			case <-stop:
+				wg.Done()
 				return
 			case <-ticker.C:
 				cell.fn(wg, updateMu, fb, cell)
