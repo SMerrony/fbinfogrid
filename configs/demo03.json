@@ -16,9 +16,9 @@
             "celltype": "carousel",
             "refreshsecs": 15,
             "sources": [
-                "landscape.png",
-                "cadsidetray.png",
-                "winterTrees1.jpg"
+                "media/landscape.png",
+                "media/cadsidetray.png",
+                "media/winterTrees1.jpg"
             ]
         }
     ]

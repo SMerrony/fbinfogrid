@@ -1,0 +1,84 @@
+{
+    "name": "IsAlive Test Page",
+    "rows": 4,
+    "cols": 3,
+    "cells": [
+        {
+            "row": 1, "col": 2,
+            "celltype": "time",
+            "refreshsecs": 30
+        },
+        {
+            "row": 2,
+            "col": 1,
+            "celltype": "isalive",
+            "source": "192.168.1.1:80",
+            "text": "4G Router",
+            "refreshsecs": 60
+        },
+        {
+            "row": 2,
+            "col": 2,
+            "celltype": "isalive",
+            "source": "192.168.1.2:80",
+            "text": "VOIP Gateway",
+            "refreshsecs": 60
+        },
+        {
+            "row": 2,
+            "col": 3,
+            "celltype": "isalive",
+            "source": "192.168.1.90:80",
+            "text": "Pi-Hole",
+            "refreshsecs": 60
+        },
+        {
+            "row": 3,
+            "col": 1,
+            "celltype": "isalive",
+            "source": "wac104:80",
+            "text": "Wireless Router",
+            "refreshsecs": 60
+        },
+        {
+            "row": 3,
+            "col": 2,
+            "celltype": "isalive",
+            "source": "192.168.1.10:80",
+            "text": "Office Bridge",
+            "refreshsecs": 60
+        },
+        {
+            "row": 3,
+            "col": 3,
+            "celltype": "isalive",
+            "source": "192.168.1.19:22",
+            "text": "WD MyCloud",
+            "refreshsecs": 60
+        },
+        {
+            "row": 4,
+            "col": 1,
+            "celltype": "isalive",
+            "source": "brother-a3-mfc.lan:80",
+            "text": "Brother Printer",
+            "refreshsecs": 60
+        },
+        {
+            "row": 4,
+            "col": 2,
+            "celltype": "isalive",
+            "source": "192.168.1.30:80",
+            "text": "Epson Printer",
+            "refreshsecs": 60
+        },
+        {
+            "row": 4,
+            "col": 3,
+            "celltype": "isalive",
+            "source": "192.168.1.16:80",
+            "text": "HP LaserJet",
+            "refreshsecs": 60
+        }
+    ]
+}
