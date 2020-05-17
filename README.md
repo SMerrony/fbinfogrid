@@ -51,7 +51,7 @@ Currently defined information cell types and associated attributes are...
 
 (* these attributes **must** be specified)
 
-(** **must** specify a ```sources``` array - see (demo03.json](media/demo03.json))  
+(** **must** specify a ```sources``` array - see [demo03.json](media/demo03.json))  
 
 Image cells that refresh (i.e. have a non-zero ```refreshsecs```) reload the image on each refresh, 
 so if the underlying file changes that change will appear on the next refresh.

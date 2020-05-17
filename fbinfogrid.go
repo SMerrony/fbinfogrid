@@ -42,6 +42,8 @@ import (
 	"sync"
 	"time"
 
+	framebuffer "github.com/gilphilbert/go-framebuffer"
+
 	"github.com/disintegration/imaging"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
@@ -52,7 +54,7 @@ import (
 const (
 	defaultConfig      = "config.json"
 	defaultFont        = "LeagueMono-Regular.ttf"
-	defaultFramebuffer = "/dev/fb0"
+	defaultFramebuffer = "fb0"
 )
 
 // N.B. In the following 3 types the exported fields may be unmarshalled from the JSON
@@ -65,7 +67,7 @@ type ConfigT struct {
 }
 
 // PageT describes the contents of a fbinfogrid page (display)
-type PageT struct {
+type PageT *struct {
 	Name                  string
 	Rows, Cols            int
 	Cells                 []CellT
@@ -84,7 +86,7 @@ type CellT *struct {
 	Source, Text     string
 	Sources          []string
 	FontPts          float64
-	fn               func(*sync.WaitGroup, *sync.Mutex, draw.Image, CellT)
+	fn               func(*sync.WaitGroup, *sync.Mutex, CellT)
 	font             *truetype.Font
 	format           string // used by the date/time funcs
 	currentSrcIx     int
@@ -98,23 +100,25 @@ var (
 	fbdevFlag  = flag.String("fbdev", defaultFramebuffer, "framebuffer device file")
 )
 
+var fb *framebuffer.Framebuffer
+
 func main() {
+	var err error
 	flag.Parse()
 
-	fb, err := Open(*fbdevFlag)
+	fb, err = framebuffer.Open(*fbdevFlag)
 	if err != nil {
 		panic(err)
 	}
-	bounds := fb.Bounds()
 
 	var (
 		updateMu sync.Mutex
 		wg       sync.WaitGroup
-		config   ConfigT
+		config   *ConfigT
 		stoppers []chan bool
 	)
 
-	config.loadConfig(*configFlag)
+	config = loadConfig(*configFlag)
 
 	config.currentPageIx = -1
 	for {
@@ -127,18 +131,17 @@ func main() {
 			page.FontFile = defaultFont
 		}
 
-		page.cellWidth = bounds.Dx() / page.Cols
-		page.cellHeight = bounds.Dy() / page.Rows
-		fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
+		page.cellWidth = fb.Xres / page.Cols
+		page.cellHeight = fb.Yres / page.Rows
+		fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", fb.Xres, fb.Yres)
 		fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", page.cellWidth, page.cellHeight)
 
-		bg := image.Black
-		draw.Draw(fb, bounds, bg, image.ZP, draw.Src)
+		fb.Fill(0, 0, 0, 255)
 		page.font = loadFont(page.FontFile)
 
 		for _, cell := range page.Cells {
 			prepareCell(page, cell)
-			stopper := startOrExecute(&wg, &updateMu, fb, cell)
+			stopper := startOrExecute(&wg, &updateMu, cell)
 			if stopper != nil {
 				stoppers = append(stoppers, stopper)
 			}
@@ -171,7 +174,7 @@ func prepareCell(page PageT, cell CellT) {
 	cell.positionRect = image.Rect(topLeftX, topLeftY, topLeftX+(page.cellWidth*cell.Colspan), topLeftY+(page.cellHeight*cell.Rowspan))
 	cell.picture = image.NewNRGBA(image.Rect(0, 0, page.cellWidth*cell.Colspan, page.cellHeight*cell.Rowspan))
 	cell.font = page.font
-
+	// fmt.Printf("Cell prepared at %v\n", cell.positionRect)
 	switch cell.CellType {
 	case "carousel":
 		cell.currentSrcIx = -1
@@ -232,7 +235,7 @@ func prepareCell(page PageT, cell CellT) {
 // funcs for handling each cell type
 
 // drawCarousel goroutine to show rotating selection of images indefinitely
-func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 	if cell.currentSrcIx++; cell.currentSrcIx == len(cell.Sources) {
 		cell.currentSrcIx = 0
 	}
@@ -240,12 +243,12 @@ func drawCarousel(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell 
 	if err != nil {
 		panic(err)
 	}
-	drawImage(i, cell, updateMu, fb)
+	drawImage(i, cell, updateMu)
 	i.Close()
 }
 
 // drawIsAlive displays an indicator that a host is accessible
-func drawIsAlive(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+func drawIsAlive(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 	red := image.NewUniform(color.RGBA{255, 0, 0, 255})
 	green := image.NewUniform(color.RGBA{0, 255, 0, 255})
 	c, err := net.DialTimeout("tcp", cell.Source, time.Second*time.Duration(cell.RefreshSecs))
@@ -257,51 +260,51 @@ func drawIsAlive(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell C
 	}
 	updateMu.Lock()
 	writeText(cell.font, cell.FontPts, cell.picture, cell.Text)
-	draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+	render(cell.positionRect, cell.picture)
 	updateMu.Unlock()
 }
 
 // drawLocalImage displays an image from the filesystem
-func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+func drawLocalImage(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 	i, err := os.Open(cell.Source)
 	if err != nil {
 		panic(err)
 	}
-	drawImage(i, cell, updateMu, fb)
+	drawImage(i, cell, updateMu)
 	i.Close()
 }
 
 //drawText displays the cell's current text
-func drawText(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+func drawText(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 	updateMu.Lock()
 	writeText(cell.font, cell.FontPts, cell.picture, cell.Text)
-	draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+	render(cell.positionRect, cell.picture)
 	updateMu.Unlock()
 }
 
 // drawTime displays the currnent time using the supplied format
-func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+func drawTime(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 	timeStr := time.Now().Format(cell.format)
 	updateMu.Lock()
 	draw.Draw(cell.picture, cell.picture.Bounds(), image.Black, image.ZP, draw.Src)
 	writeText(cell.font, cell.FontPts, cell.picture, timeStr)
-	draw.Draw(fb, cell.positionRect, cell.picture, image.ZP, draw.Src)
+	render(cell.positionRect, cell.picture)
 	updateMu.Unlock()
 }
 
 // drawURLImage displays a remote image
-func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) {
+func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 	i, err := http.Get(cell.Source)
 	if err == nil { // ignore errors here
-		drawImage(i.Body, cell, updateMu, fb)
+		drawImage(i.Body, cell, updateMu)
 		i.Body.Close()
 	}
 }
 
 // helper funcs
 
-// drawImage copies the cell's image into the target image (eg. framebuffer)
-func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
+// drawImage copies the cell's image into the framebuffer
+func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex) {
 	sImg, _, err := image.Decode(img)
 	if err != nil {
 		panic(err)
@@ -314,13 +317,12 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex, fb draw.Image) {
 	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),
 	// }
 	sImg = imaging.Fill(sImg, w, h, imaging.Center, imaging.NearestNeighbor)
-	sp := image.Point{0, 0}
 	updateMu.Lock()
-	draw.Draw(fb, cell.positionRect, sImg, sp, draw.Src)
+	render(cell.positionRect, sImg)
 	updateMu.Unlock()
 }
 
-func (config *ConfigT) loadConfig(configFilename string) {
+func loadConfig(configFilename string) (config *ConfigT) {
 	configFile, err := os.Open(configFilename)
 	if err != nil {
 		panic(err)
@@ -330,10 +332,12 @@ func (config *ConfigT) loadConfig(configFilename string) {
 	if err != nil {
 		panic(err)
 	}
-	err = json.Unmarshal(configJSON, config)
+	var newConf ConfigT
+	err = json.Unmarshal(configJSON, &newConf)
 	if err != nil {
 		panic(err)
 	}
+	return &newConf
 }
 
 func loadFont(fontFile string) *truetype.Font {
@@ -348,24 +352,28 @@ func loadFont(fontFile string) *truetype.Font {
 	return font
 }
 
-func startOrExecute(wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT) (stop chan bool) {
+func render(destRect image.Rectangle, srcImg image.Image) {
+	fb.DrawImage(destRect.Min.X, destRect.Min.Y, srcImg)
+}
+
+func startOrExecute(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) (stop chan bool) {
 	if cell.RefreshSecs == 0 {
 		// one-shot execute
-		cell.fn(wg, updateMu, fb, cell)
+		cell.fn(wg, updateMu, cell)
 		return nil
 	}
 	// regular execution
-	cell.fn(wg, updateMu, fb, cell)
+	cell.fn(wg, updateMu, cell)
 	ticker := time.NewTicker(time.Second * time.Duration(cell.RefreshSecs))
 	stop = make(chan bool)
-	go func() { //wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image) { //}, cell CellT) {
+	go func() { //wg *sync.WaitGroup, updateMu *sync.Mutex, fb *framebuffer.Framebuffer) { //}, cell CellT) {
 		for {
 			select {
 			case <-stop:
 				wg.Done()
 				return
 			case <-ticker.C:
-				cell.fn(wg, updateMu, fb, cell)
+				cell.fn(wg, updateMu, cell)
 			}
 		}
 	}() //wg, updateMu, fb, cell)
