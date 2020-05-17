@@ -55,19 +55,24 @@ const (
 	defaultFramebuffer = "/dev/fb0"
 )
 
+// N.B. In the following 3 types the exported fields may be unmarshalled from the JSON
+//      configuration file, non-exported fields are for internal use only.
+
 // ConfigT holds an fbinfogrid configuration (one or more Pages)
 type ConfigT struct {
-	Pages []PageT
+	Pages         []PageT
+	currentPageIx int
 }
 
 // PageT describes the contents of a fbinfogrid page (display)
 type PageT struct {
-	Name          string
-	Rows, Cols    int
-	Cells         []CellT
-	FontFile      string
-	DurationMins  int
-	currentPageIx int
+	Name                  string
+	Rows, Cols            int
+	Cells                 []CellT
+	FontFile              string
+	DurationMins          int
+	cellWidth, cellHeight int
+	font                  *truetype.Font
 }
 
 // CellT describes a piece of information on a page
@@ -79,13 +84,12 @@ type CellT *struct {
 	Source, Text     string
 	Sources          []string
 	FontPts          float64
-	// private fields used in code...
-	fn           func(*sync.WaitGroup, *sync.Mutex, draw.Image, CellT)
-	font         *truetype.Font
-	format       string // used by the date/time funcs
-	currentSrcIx int
-	positionRect image.Rectangle
-	picture      *image.NRGBA // .RGBA
+	fn               func(*sync.WaitGroup, *sync.Mutex, draw.Image, CellT)
+	font             *truetype.Font
+	format           string // used by the date/time funcs
+	currentSrcIx     int
+	positionRect     image.Rectangle
+	picture          *image.NRGBA // .RGBA
 }
 
 // program arguments
@@ -112,111 +116,117 @@ func main() {
 
 	config.loadConfig(*configFlag)
 
-	page := config.Pages[0]
+	config.currentPageIx = -1
+	for {
+		if config.currentPageIx++; config.currentPageIx == len(config.Pages) {
+			config.currentPageIx = 0
+		}
+		page := config.Pages[config.currentPageIx]
 
-	if page.FontFile == "" {
-		page.FontFile = defaultFont
+		if page.FontFile == "" {
+			page.FontFile = defaultFont
+		}
+
+		page.cellWidth = bounds.Dx() / page.Cols
+		page.cellHeight = bounds.Dy() / page.Rows
+		fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
+		fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", page.cellWidth, page.cellHeight)
+
+		bg := image.Black
+		draw.Draw(fb, bounds, bg, image.ZP, draw.Src)
+		page.font = loadFont(page.FontFile)
+
+		for _, cell := range page.Cells {
+			prepareCell(page, cell)
+			stopper := startOrExecute(&wg, &updateMu, fb, cell)
+			if stopper != nil {
+				stoppers = append(stoppers, stopper)
+			}
+		}
+
+		if len(config.Pages) > 1 && page.DurationMins > 0 {
+			time.Sleep(time.Minute * time.Duration(page.DurationMins))
+			for _, s := range stoppers {
+				s <- true
+			}
+		}
+
+		wg.Wait()
+		stoppers = nil
 	}
-	// fmt.Printf("Definition: for page %s is %v\n", page.Name, page)
-
-	cellWidth := bounds.Dx() / page.Cols
-	cellHeight := bounds.Dy() / page.Rows
-	fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", bounds.Dx(), bounds.Dy())
-	fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", cellWidth, cellHeight)
-
-	bg := image.Black
-	draw.Draw(fb, bounds, bg, image.ZP, draw.Src)
-
-	font := loadFont(page.FontFile)
-
-	//for {
-	for _, cell := range page.Cells {
-		topLeftX := (cell.Col - 1) * cellWidth
-		topLeftY := (cell.Row - 1) * cellHeight
-
-		if cell.Rowspan == 0 {
-			cell.Rowspan = 1
-		}
-		if cell.Colspan == 0 {
-			cell.Colspan = 1
-		}
-		// calculate where and how big it will be drawn
-		cell.positionRect = image.Rect(topLeftX, topLeftY, topLeftX+(cellWidth*cell.Colspan), topLeftY+(cellHeight*cell.Rowspan))
-		cell.picture = image.NewNRGBA(image.Rect(0, 0, cellWidth*cell.Colspan, cellHeight*cell.Rowspan))
-		cell.font = font
-
-		switch cell.CellType {
-		case "carousel":
-			cell.currentSrcIx = -1
-			cell.fn = drawCarousel
-		case "datemonth":
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 80.0
-			}
-			cell.format = "2 Jan"
-			cell.fn = drawTime // (wg *sync.WaitGroup, updateMu *sync.Mutex, fb draw.Image, cell CellT)
-		case "day":
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 80.0
-			}
-			cell.format = "Mon"
-			cell.fn = drawTime
-		case "daydatemonth":
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 80.0
-			}
-			cell.format = "Mon 2 Jan"
-			cell.fn = drawTime
-		case "hostname":
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 80.0
-			}
-			cell.Text, _ = os.Hostname()
-			cell.fn = drawText
-		case "isalive":
-			if cell.RefreshSecs == 0 {
-				panic("Must set refreshsecs for cell type isalive")
-			}
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 60.0
-			}
-			if cell.Text == "" {
-				cell.Text = strings.Split(cell.Source, ":")[0]
-			}
-			cell.fn = drawIsAlive
-		case "localimage":
-			cell.fn = drawLocalImage
-		case "text":
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 80.0
-			}
-			cell.fn = drawText
-		case "time":
-			if cell.FontPts == 0.0 {
-				cell.FontPts = 128.0
-			}
-			cell.format = "15:04"
-			cell.fn = drawTime
-		case "urlimage":
-			cell.fn = drawURLImage
-		}
-		stopper := startOrExecute(&wg, &updateMu, fb, cell)
-		if stopper != nil {
-			stoppers = append(stoppers, stopper)
-		}
-	}
-
-	// Test stopping the goroutines...
-	// time.Sleep(time.Minute * 2)
-	// for _, s := range stoppers {
-	// 	s <- true
-	// }
-
-	wg.Wait()
-
-	//}
 	//black := image.NewUniform(color.Black)
 	//draw.Draw(fb, bounds, black, image.ZP, draw.Src)
+}
+
+func prepareCell(page PageT, cell CellT) {
+	topLeftX := (cell.Col - 1) * page.cellWidth
+	topLeftY := (cell.Row - 1) * page.cellHeight
+	if cell.Rowspan == 0 {
+		cell.Rowspan = 1
+	}
+	if cell.Colspan == 0 {
+		cell.Colspan = 1
+	}
+	// calculate where and how big it will be drawn
+	cell.positionRect = image.Rect(topLeftX, topLeftY, topLeftX+(page.cellWidth*cell.Colspan), topLeftY+(page.cellHeight*cell.Rowspan))
+	cell.picture = image.NewNRGBA(image.Rect(0, 0, page.cellWidth*cell.Colspan, page.cellHeight*cell.Rowspan))
+	cell.font = page.font
+
+	switch cell.CellType {
+	case "carousel":
+		cell.currentSrcIx = -1
+		cell.fn = drawCarousel
+	case "datemonth":
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 80.0
+		}
+		cell.format = "2 Jan"
+		cell.fn = drawTime
+	case "day":
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 80.0
+		}
+		cell.format = "Mon"
+		cell.fn = drawTime
+	case "daydatemonth":
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 80.0
+		}
+		cell.format = "Mon 2 Jan"
+		cell.fn = drawTime
+	case "hostname":
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 80.0
+		}
+		cell.Text, _ = os.Hostname()
+		cell.fn = drawText
+	case "isalive":
+		if cell.RefreshSecs == 0 {
+			panic("Must set refreshsecs for cell type isalive")
+		}
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 60.0
+		}
+		if cell.Text == "" {
+			cell.Text = strings.Split(cell.Source, ":")[0]
+		}
+		cell.fn = drawIsAlive
+	case "localimage":
+		cell.fn = drawLocalImage
+	case "text":
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 80.0
+		}
+		cell.fn = drawText
+	case "time":
+		if cell.FontPts == 0.0 {
+			cell.FontPts = 128.0
+		}
+		cell.format = "15:04"
+		cell.fn = drawTime
+	case "urlimage":
+		cell.fn = drawURLImage
+	}
 }
 
 // funcs for handling each cell type

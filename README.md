@@ -31,7 +31,7 @@ Page attributes are...
 Every cell **must** have ```row```, ```col```, and ```celltype``` specified.
 
 You **may** also specify ```rowspan``` and ```colspan``` for any cell;
-see [demo04.json](demo04.json) for a an example.
+see [demo04.json](media/demo04.json) for a an example.
 Note that the behaviour of overlapping cells is currently undefined.
 
 Currently defined information cell types and associated attributes are...
@@ -51,7 +51,7 @@ Currently defined information cell types and associated attributes are...
 
 (* these attributes **must** be specified)
 
-(** **must** specify a ```sources``` array - see [demo03.json](demo03.json))  
+(** **must** specify a ```sources``` array - see (demo03.json](media/demo03.json))  
 
 Image cells that refresh (i.e. have a non-zero ```refreshsecs```) reload the image on each refresh, 
 so if the underlying file changes that change will appear on the next refresh.
