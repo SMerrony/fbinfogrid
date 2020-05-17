@@ -25,6 +25,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -32,12 +33,14 @@ import (
 	"image/color"
 	"image/draw"
 	_ "image/jpeg"
+	"image/png"
 	_ "image/png"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,9 +101,13 @@ type CellT *struct {
 var (
 	configFlag = flag.String("config", defaultConfig, "JSON file describing the information layout")
 	fbdevFlag  = flag.String("fbdev", defaultFramebuffer, "framebuffer device file")
+	httpFlag   = flag.Int("http", 0, "port to serve HTTP copy of framebuffer")
 )
 
-var fb *framebuffer.Framebuffer
+var (
+	fb     *framebuffer.Framebuffer
+	fbcopy *image.NRGBA
+)
 
 func main() {
 	var err error
@@ -117,6 +124,11 @@ func main() {
 		config   *ConfigT
 		stoppers []chan bool
 	)
+
+	if *httpFlag != 0 {
+		fbcopy = image.NewNRGBA(image.Rect(0, 0, fb.Xres, fb.Yres))
+		go httpServer(*httpFlag)
+	}
 
 	config = loadConfig(*configFlag)
 
@@ -157,8 +169,6 @@ func main() {
 		wg.Wait()
 		stoppers = nil
 	}
-	//black := image.NewUniform(color.Black)
-	//draw.Draw(fb, bounds, black, image.ZP, draw.Src)
 }
 
 func prepareCell(page PageT, cell CellT) {
@@ -322,6 +332,22 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex) {
 	updateMu.Unlock()
 }
 
+func httpServer(port int) {
+	http.HandleFunc("/", fbcopyHandler)
+	err := http.ListenAndServe(":"+strconv.Itoa(port), nil)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func fbcopyHandler(w http.ResponseWriter, req *http.Request) {
+	buff := new(bytes.Buffer)
+	png.Encode(buff, fbcopy)
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(buff.Bytes())))
+	w.Write(buff.Bytes())
+}
+
 func loadConfig(configFilename string) (config *ConfigT) {
 	configFile, err := os.Open(configFilename)
 	if err != nil {
@@ -354,6 +380,9 @@ func loadFont(fontFile string) *truetype.Font {
 
 func render(destRect image.Rectangle, srcImg image.Image) {
 	fb.DrawImage(destRect.Min.X, destRect.Min.Y, srcImg)
+	if fbcopy != nil {
+		draw.Draw(fbcopy, destRect, srcImg, image.Point{0, 0}, draw.Src)
+	}
 }
 
 func startOrExecute(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) (stop chan bool) {
