@@ -1,6 +1,8 @@
 # fbinfogrid
 Display a configurable grid of information and images on the Raspberry Pi framebuffer.
 
+![fbinfogrid screenshot 1](screenshots/demo02.png) ![fbinfogrid network monitoring](screenshots/hostmon1.png) 
+
 The information may optionally be made available via HTTP.
 
 ## Usage
@@ -13,9 +15,9 @@ If any cell has "refreshsecs" defined to be > 0 then the program will not exit u
 otherwise the program will end once the grid has been drawn.
 
 ## Configuration
-See the included demoX.json files for configuration examples.
+See the included JSON files in the configs folder for configuration examples.
 
-The configuration describes page(s) of cells.  
+A configuration describes page(s) of cells.  
 
 ### Page
 Page attributes are...
@@ -28,12 +30,14 @@ Page attributes are...
 | fontfile |     N      | Path of a TTF font, defaults to supplied LeagueMono-Regular.ttf |
 | durationmins | N      | How many minutes to wait before moving to the next page (no default) |
 
+See [demoTwoPages.json](configs/demoTwoPages.json) for a multiple-page exampple.
+
 ### Cells
 
 Every cell **must** have ```row```, ```col```, and ```celltype``` specified.
 
 You **may** also specify ```rowspan``` and ```colspan``` for any cell;
-see [demo04.json](media/demo04.json) for a an example.
+see [demo04.json](configs/demo04.json) for a an example.
 Note that the behaviour of overlapping cells is currently undefined.
 
 Currently defined information cell types and associated attributes are...
@@ -53,7 +57,7 @@ Currently defined information cell types and associated attributes are...
 
 (* these attributes **must** be specified)
 
-(** **must** specify a ```sources``` array - see [demo03.json](media/demo03.json))  
+(** **must** specify a ```sources``` array - see [demo03.json](configs/demo03.json))  
 
 Image cells that refresh (i.e. have a non-zero ```refreshsecs```) reload the image on each refresh, 
 so if the underlying file changes that change will appear on the next refresh.
