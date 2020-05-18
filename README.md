@@ -30,7 +30,7 @@ Page attributes are...
 | fontfile |     N      | Path of a TTF font, defaults to supplied LeagueMono-Regular.ttf |
 | durationmins | N      | How many minutes to wait before moving to the next page (no default) |
 
-See [demoTwoPages.json](configs/demoTwoPages.json) for a multiple-page exampple.
+See [demoTwoPages.json](configs/demoTwoPages.json) for a multiple-page example.
 
 ### Cells
 
@@ -49,7 +49,7 @@ Currently defined information cell types and associated attributes are...
 | day         | eg. "Mon"                      |    Y    |      Y      |    N   |   N  |
 | daydatemonth | eg. "Mon 2 Jan"               |    Y    |      Y      |    N   |   N  |
 | hostname    | eg. "raspipi01"                |    Y    |      N      |    N   |   N  |
-| isalive     | Is a host reachable?           |    Y    |      Y*     |    Y*  |   Y  |
+| isalive     | Is a host reachable via TCP?   |    Y    |      Y*     |    Y*  |   Y  |
 | localimage  | An image stored locally        |    N    |      Y      |    Y*  |   N  |
 | text        | Text that is never updated     |    Y    |      N      |    N   |   Y* |
 | time        | eg. "15:04"                    |    Y    |      Y      |    N   |   N  |
