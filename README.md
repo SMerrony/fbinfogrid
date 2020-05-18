@@ -1,6 +1,8 @@
 # fbinfogrid
 Display a configurable grid of information and images on the Raspberry Pi framebuffer.
 
+The information may optionally be made available via HTTP.
+
 ## Usage
 Type ```./fbinfogrid -h``` for help.  
 

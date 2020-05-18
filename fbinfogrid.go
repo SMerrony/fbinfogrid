@@ -19,8 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Old Advice: Must do this first: sudo fbset -fb /dev/fb0 -depth 16 unless 16-bit framebuffer depth is set in config.txt
 // Since late 2015 the default framebuffer depth under Raspbian is 32 bits, this yields the best performance.
+// Append vt.global_cursor_default=0 to /boot/cmdline.txt to disable the blinking cursor.
 
 package main
 
@@ -28,7 +28,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
@@ -105,8 +104,9 @@ var (
 )
 
 var (
-	fb     *framebuffer.Framebuffer
-	fbcopy *image.NRGBA
+	fb       *framebuffer.Framebuffer
+	fbcopyMu sync.RWMutex
+	fbcopy   *image.NRGBA
 )
 
 func main() {
@@ -132,6 +132,9 @@ func main() {
 
 	config = loadConfig(*configFlag)
 
+	blanker := image.NewNRGBA(image.Rect(0, 0, fb.Xres, fb.Yres))
+	draw.Draw(blanker, blanker.Bounds(), image.Black, image.ZP, draw.Src)
+
 	config.currentPageIx = -1
 	for {
 		if config.currentPageIx++; config.currentPageIx == len(config.Pages) {
@@ -145,10 +148,10 @@ func main() {
 
 		page.cellWidth = fb.Xres / page.Cols
 		page.cellHeight = fb.Yres / page.Rows
-		fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", fb.Xres, fb.Yres)
-		fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", page.cellWidth, page.cellHeight)
+		// fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", fb.Xres, fb.Yres)
+		// fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", page.cellWidth, page.cellHeight)
 
-		fb.Fill(0, 0, 0, 255)
+		render(image.Rect(0, 0, fb.Xres, fb.Yres), blanker)
 		page.font = loadFont(page.FontFile)
 
 		for _, cell := range page.Cells {
@@ -341,8 +344,14 @@ func httpServer(port int) {
 }
 
 func fbcopyHandler(w http.ResponseWriter, req *http.Request) {
+	// NoCompression is actually faster than BestSpeed, but the resultant image
+	// is typically much larger resulting in longer transmission times...
+	enc := &png.Encoder{CompressionLevel: png.BestSpeed}
+	// enc := &png.Encoder{CompressionLevel: png.NoCompression}
 	buff := new(bytes.Buffer)
-	png.Encode(buff, fbcopy)
+	fbcopyMu.RLock()
+	enc.Encode(buff, fbcopy)
+	fbcopyMu.RUnlock()
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buff.Bytes())))
 	w.Write(buff.Bytes())
@@ -381,7 +390,9 @@ func loadFont(fontFile string) *truetype.Font {
 func render(destRect image.Rectangle, srcImg image.Image) {
 	fb.DrawImage(destRect.Min.X, destRect.Min.Y, srcImg)
 	if fbcopy != nil {
+		fbcopyMu.Lock()
 		draw.Draw(fbcopy, destRect, srcImg, image.Point{0, 0}, draw.Src)
+		fbcopyMu.Unlock()
 	}
 }
 
