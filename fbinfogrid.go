@@ -330,11 +330,6 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex) {
 	}
 	w := cell.picture.Bounds().Dx()
 	h := cell.picture.Bounds().Dy()
-	// sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
-	// sp := image.Point{
-	// 	X: (sImg.Bounds().Dx() / 2) - (w / 2),
-	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),
-	// }
 	switch cell.Scaling {
 	case "fit":
 		sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
@@ -365,6 +360,7 @@ func fbcopyHandler(w http.ResponseWriter, req *http.Request) {
 	fbcopyMu.RLock()
 	enc.Encode(buff, fbcopy)
 	fbcopyMu.RUnlock()
+	w.Header().Set("Refresh", "60") // the browser will reload the image every 60 seconds
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buff.Bytes())))
 	w.Write(buff.Bytes())

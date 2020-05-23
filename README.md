@@ -7,7 +7,7 @@ Clock, image carousel, and updating webcam snapshots...
 Simple network device monitoring...
 ![fbinfogrid network monitoring](screenshots/hostmon1.png) 
 
-The information may optionally be made available via HTTP.
+The information may optionally be made available via HTTP which will refresh every minute.
 
 ## Usage
 Type ```./fbinfogrid -h``` for help.  
