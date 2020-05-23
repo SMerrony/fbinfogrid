@@ -46,18 +46,18 @@ Note that the behaviour of overlapping cells is currently undefined.
 
 Currently defined information cell types and associated attributes are...
 
-|   Type      |  Description                   | fontpts | refreshsecs | source | text |
-|-------------|--------------------------------| :-----: | :---------: | :----: | :--: |
-| carousel    | Slideshow of images            |    N    |      Y*     |    **  |   N  |
-| datemonth   | eg. "2 Jan"                    |    Y    |      Y      |    N   |   N  |
-| day         | eg. "Mon"                      |    Y    |      Y      |    N   |   N  |
-| daydatemonth | eg. "Mon 2 Jan"               |    Y    |      Y      |    N   |   N  |
-| hostname    | eg. "raspipi01"                |    Y    |      N      |    N   |   N  |
-| isalive     | Is a host reachable via TCP?   |    Y    |      Y*     |    Y*  |   Y  |
-| localimage  | An image stored locally        |    N    |      Y      |    Y*  |   N  |
-| text        | Text that is never updated     |    Y    |      N      |    N   |   Y* |
-| time        | eg. "15:04"                    |    Y    |      Y      |    N   |   N  |
-| urlimage    | An image (JPEG/PNG) from a URL |    N    |      Y      |    Y*  |   N  |
+|   Type      |  Description                   | fontpts | refreshsecs | scaling | source | text |
+|-------------|--------------------------------| :-----: | :---------: | :-----: | :----: | :--: |
+| carousel    | Slideshow of images            |    N    |      Y*     |    Y    |    **  |   N  |
+| datemonth   | eg. "2 Jan"                    |    Y    |      Y      |    N    |    N   |   N  |
+| day         | eg. "Mon"                      |    Y    |      Y      |    N    |    N   |   N  |
+| daydatemonth | eg. "Mon 2 Jan"               |    Y    |      Y      |    N    |    N   |   N  |
+| hostname    | eg. "raspipi01"                |    Y    |      N      |    N    |    N   |   N  |
+| isalive     | Is a host reachable via TCP?   |    Y    |      Y*     |    N    |    Y*  |   Y  |
+| localimage  | An image stored locally        |    N    |      Y      |    Y    |    Y*  |   N  |
+| text        | Text that is never updated     |    Y    |      N      |    N    |    N   |   Y* |
+| time        | eg. "15:04"                    |    Y    |      Y      |    N    |    N   |   N  |
+| urlimage    | An image (JPEG/PNG) from a URL |    N    |      Y      |    Y    |    Y*  |   N  |
 
 (* these attributes **must** be specified)
 
@@ -66,5 +66,6 @@ Currently defined information cell types and associated attributes are...
 Image cells that refresh (i.e. have a non-zero ```refreshsecs```) reload the image on each refresh, 
 so if the underlying file changes that change will appear on the next refresh.
 
-Images are scaled to fill the cell whilst maintaining their original aspect ratio.
-This will result in a certain amount of cropping if the image and cell proportions differ.
+Scaling may be one of "fill", "fit", or "resize" (default).  Fill and fit maintain the aspect
+ratio of the image, so there may be some cropping or borders apparent; resize scales the image to exactly 
+fit the cell, so there may be some distortion.

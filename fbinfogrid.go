@@ -36,6 +36,7 @@ import (
 	_ "image/png"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -88,6 +89,7 @@ type CellT *struct {
 	Source, Text     string
 	Sources          []string
 	FontPts          float64
+	Scaling          string
 	fn               func(*sync.WaitGroup, *sync.Mutex, CellT)
 	font             *truetype.Font
 	format           string // used by the date/time funcs
@@ -117,6 +119,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("INFO: Page size in pixels is: %d x %d (w x h)\n", fb.Xres, fb.Yres)
 
 	var (
 		updateMu sync.Mutex
@@ -148,7 +151,6 @@ func main() {
 
 		page.cellWidth = fb.Xres / page.Cols
 		page.cellHeight = fb.Yres / page.Rows
-		// fmt.Printf("Page size in pixels is: %d x %d (w x h)\n", fb.Xres, fb.Yres)
 		// fmt.Printf("Calculated cell size is: %d x %d (w x h)\n", page.cellWidth, page.cellHeight)
 
 		render(image.Rect(0, 0, fb.Xres, fb.Yres), blanker)
@@ -242,6 +244,9 @@ func prepareCell(page PageT, cell CellT) {
 		cell.fn = drawTime
 	case "urlimage":
 		cell.fn = drawURLImage
+
+	default:
+		log.Fatalf("ERROR: Unknown cell type %s\n", cell.CellType)
 	}
 }
 
@@ -320,7 +325,8 @@ func drawURLImage(wg *sync.WaitGroup, updateMu *sync.Mutex, cell CellT) {
 func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex) {
 	sImg, _, err := image.Decode(img)
 	if err != nil {
-		panic(err)
+		log.Printf("WARNING: Could not render image due to %s", err)
+		return
 	}
 	w := cell.picture.Bounds().Dx()
 	h := cell.picture.Bounds().Dy()
@@ -329,7 +335,14 @@ func drawImage(img io.Reader, cell CellT, updateMu *sync.Mutex) {
 	// 	X: (sImg.Bounds().Dx() / 2) - (w / 2),
 	// 	Y: (sImg.Bounds().Dy() / 2) - (h / 2),
 	// }
-	sImg = imaging.Fill(sImg, w, h, imaging.Center, imaging.NearestNeighbor)
+	switch cell.Scaling {
+	case "fit":
+		sImg = imaging.Fit(sImg, w, h, imaging.NearestNeighbor)
+	case "fill":
+		sImg = imaging.Fill(sImg, w, h, imaging.Center, imaging.NearestNeighbor)
+	default:
+		sImg = imaging.Resize(sImg, w, h, imaging.NearestNeighbor)
+	}
 	updateMu.Lock()
 	render(cell.positionRect, sImg)
 	updateMu.Unlock()
