@@ -1,27 +1,40 @@
 # fbinfogrid
-Display a configurable grid of information and images on a Raspberry Pi (or other Linux) framebuffer.
+Display a configurable grid of information and images on a Raspberry Pi (or other GNU/Linux) framebuffer.
 
+## Screenshots
 Clock, image carousel, and updating webcam snapshots...
 ![fbinfogrid screenshot 1](screenshots/demo02.png) 
 
 Simple network device monitoring...
 ![fbinfogrid network monitoring](screenshots/hostmon1.png) 
 
-The information may optionally be made available via HTTP which will refresh every minute.
+A copy of the information grid may optionally be made available via HTTP which will refresh every minute.
+
+*fbinfogrid* builds and runs successfully on an original [Raspberry  Pi Model A](https://elinux.org/RPi_HardwareHistory#Raspberry_Pi_Model_A_Full_Production_Board) from 2013, so it should run fine on all modern 
+platforms.  It should work fine on any other GNU/Linux platorm that supports a standard framebuffer
+device and the [Go](https://golang.org/) language.
 
 ## Usage
 Type ```./fbinfogrid -h``` for help.  
+
+E.g. ```./fbinfogrid -config configs/demoSpans.json -http 8080```
 
 You may supply a ```config.json``` file in the working directory or you can use the ```-config``` option 
 to specify a grid configuration file.
 
 If any cell has "refreshsecs" defined to be > 0 then the program will not exit until it is killed, 
-otherwise the program will end once the grid has been drawn.
+otherwise the program will end once the grid has been drawn unless there are multiple pages (see below).
 
 ## Configuration
 See the included JSON files in the [configs](configs) folder for configuration examples.
 
-A configuration describes page(s) of cells.  
+Note that _fbinfogrid_ takes the pixel dimensions of the specified framebuffer and uses them to calculate
+the layout (i.e. cell sizes) by simple division.
+There is no attempt made to intelligently 'flow' or fit the grid; you must ensure that the configuration you specify makes sense for your current framebuffer settings.
+You can use the standard ```fbset``` program to check and alter the characteristics of the framebuffer.
+Also, the image in the HTTP copy of the grid will have the same pixel dimensions as the framebuffer.
+
+A configuration describes page(s) of cells... 
 
 ### Page
 Page attributes are...
